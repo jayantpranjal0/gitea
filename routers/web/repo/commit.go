@@ -34,15 +34,18 @@ import (
 	"code.gitea.io/gitea/services/context"
 	git_service "code.gitea.io/gitea/services/git"
 	"code.gitea.io/gitea/services/gitdiff"
+	"code.gitea.io/gitea/services/context/upload"
+	"code.gitea.io/gitea/services/forms"
+	"code.gitea.io/gitea/modules/web"
 	repo_service "code.gitea.io/gitea/services/repository"
 	"code.gitea.io/gitea/services/repository/gitgraph"
 )
 
 const (
-	tplCommits    templates.TplName = "repo/commits"
-	tplGraph      templates.TplName = "repo/graph"
-	tplGraphDiv   templates.TplName = "repo/graph/div"
-	tplCommitPage templates.TplName = "repo/commit_page"
+	tplCommits           templates.TplName = "repo/commits"
+	tplGraph             templates.TplName = "repo/graph"
+	tplGraphDiv          templates.TplName = "repo/graph/div"
+	tplCommitPage        templates.TplName = "repo/commit_page"
 )
 
 // RefCommits render commits page
@@ -425,6 +428,88 @@ func Diff(ctx *context.Context) {
 	}
 
 	ctx.HTML(http.StatusOK, tplCommitPage)
+}
+
+// RenderNewCommitCommentForm renders the form for creating a new commit comment
+func RenderNewCommitCommentForm(ctx *context.Context) {
+	if ctx.Written() {
+		return
+	}
+	sha := ctx.PathParam("sha")
+	ctx.Data["CommitID"] = sha
+	ctx.Data["AfterCommitID"] = sha
+	ctx.Data["IsAttachmentEnabled"] = setting.Attachment.Enabled
+	upload.AddUploadContext(ctx, "comment")
+	ctx.HTML(http.StatusOK, tplNewComment)
+}
+
+// CreateCommitCodeComment creates a code comment on a commit
+func CreateCommitCodeComment(ctx *context.Context) {
+	form := web.GetForm(ctx).(*forms.CodeCommentForm)
+	sha := ctx.PathParam("sha")
+	if ctx.Written() {
+		return
+	}
+	if ctx.HasError() {
+		ctx.Flash.Error(ctx.Data["ErrorMsg"].(string))
+		ctx.Redirect(fmt.Sprintf("%s/commit/%s", ctx.Repo.RepoLink, sha))
+		return
+	}
+
+	signedLine := form.Line
+	if form.Side == "previous" {
+		signedLine *= -1
+	}
+
+
+	comment := &git_model.CommitComment{
+		RepoID:   ctx.Repo.Repository.ID,
+		CommitSHA: sha,
+		PosterID: ctx.Doer.ID,
+		Path:     form.TreePath,
+		Line:     int64(signedLine),
+		Content:  form.Content,
+	}
+	if err := git_model.CreateCommitComment(ctx, comment); err != nil {
+		ctx.ServerError("CreateCommitComment", err)
+		return
+	}
+
+	if err := comment.LoadPoster(ctx); err != nil {
+		ctx.ServerError("LoadPoster", err)
+		return
+	}
+
+	// Render content for this and all comments on the same line/path
+	comments, err := git_model.ListCommitCommentsByLine(ctx, ctx.Repo.Repository.ID, sha, form.TreePath, int64(signedLine))
+	if err != nil {
+		ctx.ServerError("ListCommitCommentsByLine", err)
+		return
+	}
+
+	rctx := renderhelper.NewRenderContextRepoComment(ctx, ctx.Repo.Repository, renderhelper.RepoCommentOptions{CurrentRefPath: path.Join("commit", util.PathEscapeSegments(sha))})
+	for _, cc := range comments {
+		if err := cc.LoadPoster(ctx); err != nil {
+			ctx.ServerError("LoadPoster", err)
+			return
+		}
+		rendered, err := markup.PostProcessCommitMessage(rctx, template.HTMLEscapeString(cc.Content))
+		if err != nil {
+			ctx.ServerError("PostProcessCommitMessage", err)
+			return
+		}
+		cc.RenderedContent = template.HTML(rendered)
+	}
+
+	// Prepare data compatible with the PR conversation templates
+	ctx.Data["comments"] = comments
+	ctx.Data["root"] = ctx.Data
+	ctx.Data["AfterCommitID"] = sha
+	ctx.Data["CommitID"] = sha
+	ctx.Data["IsAttachmentEnabled"] = setting.Attachment.Enabled
+	ctx.Data["CanMarkConversation"] = false
+
+	ctx.HTML(http.StatusOK, tplDiffConversation)
 }
 
 // RawDiff dumps diff results of repository in given commit ID to io.Writer

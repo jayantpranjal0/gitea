@@ -72,5 +72,14 @@ export function initRepository() {
     registerGlobalInitFunc('initRepoPullMergeBox', initRepoPullMergeBox);
   }
 
+  // Diff pages (PR & commit diffs) also need comment-related handlers
+  if (pageContent.matches('.page-content.repository.diff')) {
+    // Attach inline code comment handlers and related cancel/delete/reaction behavior
+    initRepoIssueComments();
+    initRepoIssueCodeCommentCancel();
+    initRepoIssueCommentDelete();
+    initCompReactionSelector();
+  }
+
   initUnicodeEscapeButton();
 }

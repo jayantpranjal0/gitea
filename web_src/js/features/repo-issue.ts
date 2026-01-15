@@ -301,8 +301,8 @@ export function initRepoPullRequestReview() {
     handleReply(el);
   });
 
-  // The following part is only for diff views
-  if (!document.querySelector('.repository.pull.diff')) return;
+  // The following part is only for diff views (PR and commit diffs)
+  if (!document.querySelector('.repository.diff')) return;
 
   const elReviewBtn = document.querySelector('.js-btn-review');
   const elReviewPanel = document.querySelector('.review-box-panel.tippy-target');
@@ -345,7 +345,7 @@ export function initRepoPullRequestReview() {
     const td = ntr.querySelector(`.add-comment-${side}`)!;
     const commentCloud = td.querySelector('.comment-code-cloud');
     if (!commentCloud && !ntr.querySelector('button[name="pending_review"]')) {
-      const response = await GET(el.closest('[data-new-comment-url]')?.getAttribute('data-new-comment-url') ?? '');
+      const response = await GET(el.closest('[data-new-comment-url]')?.getAttribute('data-new-comment-url') ?? '', {credentials: 'include', redirect: 'follow'});
       td.innerHTML = await response.text();
       td.querySelector<HTMLInputElement>("input[name='line']")!.value = idx;
       td.querySelector<HTMLInputElement>("input[name='side']")!.value = (side === 'left' ? 'previous' : 'proposed');
