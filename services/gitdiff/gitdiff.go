@@ -22,10 +22,9 @@ import (
 	git_model "code.gitea.io/gitea/models/git"
 	issues_model "code.gitea.io/gitea/models/issues"
 	pull_model "code.gitea.io/gitea/models/pull"
-	user_model "code.gitea.io/gitea/models/user"
-	repo_model "code.gitea.io/gitea/models/repo"
 	renderhelper "code.gitea.io/gitea/models/renderhelper"
-	"code.gitea.io/gitea/modules/markup"
+	repo_model "code.gitea.io/gitea/models/repo"
+	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/analyze"
 	"code.gitea.io/gitea/modules/base"
 	"code.gitea.io/gitea/modules/charset"
@@ -37,6 +36,7 @@ import (
 	"code.gitea.io/gitea/modules/htmlutil"
 	"code.gitea.io/gitea/modules/lfs"
 	"code.gitea.io/gitea/modules/log"
+	"code.gitea.io/gitea/modules/markup"
 	"code.gitea.io/gitea/modules/optional"
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/svg"
@@ -609,16 +609,16 @@ func (diff *Diff) LoadCommitComments(ctx context.Context, repo *repo_model.Repos
 			return err
 		}
 		c := &issues_model.Comment{
-			ID:           cc.ID,
-			Type:         issues_model.CommentTypeCode,
-			PosterID:     cc.PosterID,
-			Poster:       cc.Poster,
+			ID:             cc.ID,
+			Type:           issues_model.CommentTypeCode,
+			PosterID:       cc.PosterID,
+			Poster:         cc.Poster,
 			OriginalAuthor: "",
-			IssueID:      0,
-			Content:      cc.Content,
-			CreatedUnix:  cc.CreatedUnix,
-			Line:         cc.Line,
-			TreePath:     cc.Path,
+			IssueID:        0,
+			Content:        cc.Content,
+			CreatedUnix:    cc.CreatedUnix,
+			Line:           cc.Line,
+			TreePath:       cc.Path,
 		}
 		// Render content for this comment
 		rctx := renderhelper.NewRenderContextRepoComment(ctx, repo, renderhelper.RepoCommentOptions{CurrentRefPath: path.Join("commit", util.PathEscapeSegments(commitSHA))})
