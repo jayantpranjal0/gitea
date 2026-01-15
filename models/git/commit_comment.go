@@ -151,3 +151,60 @@ func (c *CommitComment) DiffSide() string {
 func (c *CommitComment) TreePath() string {
 	return c.Path
 }
+
+// The following methods are provided to be compatible with the issue/pull comment templates
+// which expect a richer comment shape (IsResolved, Invalidated, ResolveDoer, Review, ReviewID).
+// Commit comments currently do not support review resolution, so these return zero-values.
+
+// IsResolved indicates whether the conversation has been resolved
+func (c *CommitComment) IsResolved() bool { return false }
+
+// Invalidated indicates whether the comment has been invalidated/outdated
+func (c *CommitComment) Invalidated() bool { return false }
+
+// ResolveDoer returns the user who resolved the conversation (nil for commit comments)
+func (c *CommitComment) ResolveDoer() *user_model.User { return nil }
+
+// Review returns an associated review (nil for commit comments)
+func (c *CommitComment) Review() any { return nil }
+
+// ReviewID returns the ID of the review if any (0 for commit comments)
+func (c *CommitComment) ReviewID() int64 { return 0 }
+
+// OriginalAuthor returns original author name for migrated comments (empty for commit comments)
+func (c *CommitComment) OriginalAuthor() string { return "" }
+
+// Attachments returns attachments associated with the comment (none for commit comments)
+// Return type is interface{} to avoid importing repo models and causing import cycles.
+func (c *CommitComment) Attachments() interface{} { return nil }
+
+// ContentVersion returns the content version for inline editing
+func (c *CommitComment) ContentVersion() int { return 0 }
+
+// ReactionListShim is a small, local-friendly substitute for templates that expect
+// a list type with GroupByType, HasUser, GetFirstUsers and GetMoreUserCount methods.
+// Implemented locally to avoid import cycles with models/issues.
+type ReactionShim struct {
+	UserID         int64
+	OriginalAuthor string
+	User           *user_model.User
+}
+
+type ReactionListShim []*ReactionShim
+
+// GroupByType returns an empty map for commit comments (no reactions yet)
+func (list ReactionListShim) GroupByType() map[string]ReactionListShim {
+	return map[string]ReactionListShim{}
+}
+
+// HasUser always returns false for commit comments
+func (list ReactionListShim) HasUser(userID int64) bool { return false }
+
+// GetFirstUsers returns a comma-separated list of first users
+func (list ReactionListShim) GetFirstUsers() string { return "" }
+
+// GetMoreUserCount returns remaining user count
+func (list ReactionListShim) GetMoreUserCount() int { return 0 }
+
+// Reactions returns a ReactionListShim (empty) so templates can safely call GroupByType
+func (c *CommitComment) Reactions() ReactionListShim { return nil }

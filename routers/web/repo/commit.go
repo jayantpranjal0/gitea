@@ -30,22 +30,23 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/templates"
 	"code.gitea.io/gitea/modules/util"
+	"code.gitea.io/gitea/modules/web"
 	asymkey_service "code.gitea.io/gitea/services/asymkey"
 	"code.gitea.io/gitea/services/context"
-	git_service "code.gitea.io/gitea/services/git"
-	"code.gitea.io/gitea/services/gitdiff"
 	"code.gitea.io/gitea/services/context/upload"
 	"code.gitea.io/gitea/services/forms"
-	"code.gitea.io/gitea/modules/web"
+	git_service "code.gitea.io/gitea/services/git"
+	"code.gitea.io/gitea/services/gitdiff"
 	repo_service "code.gitea.io/gitea/services/repository"
 	"code.gitea.io/gitea/services/repository/gitgraph"
+	user_service "code.gitea.io/gitea/services/user"
 )
 
 const (
-	tplCommits           templates.TplName = "repo/commits"
-	tplGraph             templates.TplName = "repo/graph"
-	tplGraphDiv          templates.TplName = "repo/graph/div"
-	tplCommitPage        templates.TplName = "repo/commit_page"
+	tplCommits    templates.TplName = "repo/commits"
+	tplGraph      templates.TplName = "repo/graph"
+	tplGraphDiv   templates.TplName = "repo/graph/div"
+	tplCommitPage templates.TplName = "repo/commit_page"
 )
 
 // RefCommits render commits page
@@ -353,6 +354,23 @@ func Diff(ctx *context.Context) {
 	ctx.Data["Username"] = userName
 	ctx.Data["Reponame"] = repoName
 
+	// Load commit comments into diff so inline conversations are visible
+	if diff != nil {
+		// Ensure ShowOutdatedComments is a boolean (middleware may not have run for commit routes)
+		showOutdated := false
+		if v, ok := ctx.Data["ShowOutdatedComments"].(bool); ok {
+			showOutdated = v
+		} else {
+			showOutdated = ctx.FormBool("show-outdated")
+			ctx.Data["ShowOutdatedComments"] = showOutdated
+		}
+
+		if err := diff.LoadCommitComments(ctx, ctx.Repo.Repository, ctx.Doer, commitID, showOutdated); err != nil {
+			ctx.ServerError("LoadCommitComments", err)
+			return
+		}
+	}
+
 	var parentCommit *git.Commit
 	var parentCommitID string
 	if commit.ParentCount() > 0 {
@@ -368,6 +386,12 @@ func Diff(ctx *context.Context) {
 	ctx.Data["Commit"] = commit
 	ctx.Data["Diff"] = diff
 	ctx.Data["DiffBlobExcerptData"] = diffBlobExcerptData
+
+	// Provide root and helper functions expected by diff/issue templates
+	ctx.Data["root"] = ctx.Data
+	ctx.Data["CanBlockUser"] = func(blocker, blockee *user_model.User) bool {
+		return user_service.CanBlockUser(ctx, ctx.Doer, blocker, blockee)
+	}
 
 	if !fileOnly {
 		diffTree, err := gitdiff.GetDiffTree(ctx, gitRepo, false, parentCommitID, commitID)
@@ -461,14 +485,13 @@ func CreateCommitCodeComment(ctx *context.Context) {
 		signedLine *= -1
 	}
 
-
 	comment := &git_model.CommitComment{
-		RepoID:   ctx.Repo.Repository.ID,
+		RepoID:    ctx.Repo.Repository.ID,
 		CommitSHA: sha,
-		PosterID: ctx.Doer.ID,
-		Path:     form.TreePath,
-		Line:     int64(signedLine),
-		Content:  form.Content,
+		PosterID:  ctx.Doer.ID,
+		Path:      form.TreePath,
+		Line:      int64(signedLine),
+		Content:   form.Content,
 	}
 	if err := git_model.CreateCommitComment(ctx, comment); err != nil {
 		ctx.ServerError("CreateCommitComment", err)

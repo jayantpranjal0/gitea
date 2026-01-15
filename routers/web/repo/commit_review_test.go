@@ -4,13 +4,12 @@
 package repo
 
 import (
-	"net/http/httptest"
 	"testing"
 
 	git_model "code.gitea.io/gitea/models/git"
 	"code.gitea.io/gitea/models/unittest"
 	"code.gitea.io/gitea/modules/templates"
-	"code.gitea.io/gitea/services/context"
+	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/services/contexttest"
 	"code.gitea.io/gitea/services/forms"
 
@@ -60,8 +59,8 @@ func TestCreateCommitCodeComment(t *testing.T) {
 	}
 	// bind form to context
 	web.SetForm(ctx, form)
-	// set origin to commit so validation accepts it
-	ctx.SetFormString("origin", "commit")
+	// set origin to diff so validation accepts it
+	ctx.SetFormString("origin", "diff")
 
 	// call handler
 	CreateCommitCodeComment(ctx)
