@@ -95,3 +95,34 @@ func TestCommitDiffContainsAddCodeComment(t *testing.T) {
 	// add-code-comment button should be rendered (even if hidden via tw-invisible)
 	assert.Contains(t, body, `add-code-comment`)
 }
+
+func TestCommitDiffRendersCommitComments(t *testing.T) {
+	unittest.PrepareTestEnv(t)
+
+	ctx, resp := contexttest.MockContext(t, "/", contexttest.MockContextOption{Render: templates.HTMLRenderer()})
+	contexttest.LoadUser(t, ctx, 1)
+	contexttest.LoadRepo(t, ctx, 1)
+	contexttest.LoadGitRepo(t, ctx)
+	defer ctx.Repo.GitRepo.Close()
+
+	sha, err := ctx.Repo.GitRepo.GetBranchCommitID("master")
+	require.NoError(t, err)
+
+	// Create a commit comment in DB
+	c := &git_model.CommitComment{
+		RepoID:    ctx.Repo.Repository.ID,
+		CommitSHA: sha,
+		PosterID:  ctx.Doer.ID,
+		Path:      "templates/repo/diff/stats.tmpl",
+		Line:      6,
+		Content:   "commit comment test",
+	}
+	require.NoError(t, git_model.CreateCommitComment(t.Context(), c))
+
+	ctx.SetPathParam("sha", sha)
+	Diff(ctx)
+	assert.Equal(t, 200, resp.Code)
+	body := resp.Body.String()
+	// The rendered conversation partial should include our comment content
+	assert.Contains(t, body, "commit comment test")
+}
