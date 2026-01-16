@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 
+	"code.gitea.io/gitea/models/db"
 	git_model "code.gitea.io/gitea/models/git"
 	renderhelper "code.gitea.io/gitea/models/renderhelper"
 	"code.gitea.io/gitea/modules/log"
@@ -15,7 +16,6 @@ import (
 	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/services/context"
 	"code.gitea.io/gitea/services/forms"
-	"code.gitea.io/gitea/models/db"
 )
 
 // DeleteCommitComment deletes a commit comment
