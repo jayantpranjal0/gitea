@@ -49,8 +49,27 @@ function initRepoDiffConversationForm() {
       // on the diff page, the form is inside a "tr" and need to get the line-type ahead
       // but on the conversation page, there is no parent "tr"
       const trLineType = form.closest('tr')?.getAttribute('data-line-type');
-      const response = await POST(form.getAttribute('action')!, {data: formData});
-      const newConversationHolder = createElementFromHTML(await response.text());
+      const response = await POST(form.getAttribute('action')!, {data: formData, credentials: 'include', redirect: 'follow'});
+      const respText = await response.text();
+      // Log status and response snippet for easier debugging
+      console.debug('CreateCommitCodeComment response', {status: response.status, snippet: respText.slice(0, 400)});
+      let newConversationHolder = createElementFromHTML(respText);
+      // Ensure we have an Element with attributes; fallback to parsing the full document if needed
+      if (!newConversationHolder || typeof (newConversationHolder as any).getAttribute !== 'function') {
+        try {
+          const respDoc = parseDom(respText, 'text/html');
+          const conv = respDoc.querySelector('.conversation-holder');
+          if (conv) {
+            newConversationHolder = conv as HTMLElement;
+          } else {
+            throw new Error('server returned invalid conversation HTML');
+          }
+        } catch (err) {
+          console.error('Failed to parse conversation response', err, respText);
+          throw err;
+        }
+      }
+
       const path = newConversationHolder.getAttribute('data-path');
       const side = newConversationHolder.getAttribute('data-side');
       const idx = newConversationHolder.getAttribute('data-idx');

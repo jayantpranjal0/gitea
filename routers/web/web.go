@@ -1533,6 +1533,7 @@ func registerWebRoutes(m *web.Router) {
 	m.Group("/{username}/{reponame}", func() {
 		m.Get("/{type:pulls}", repo.Issues)
 		m.Group("/{type:pulls}/{index}", func() {
+			// this is the one
 			m.Get("", repo.SetWhitespaceBehavior, repo.GetPullDiffStats, repo.ViewIssue)
 			m.Get(".diff", repo.DownloadPullDiff)
 			m.Get(".patch", repo.DownloadPullPatch)
@@ -1616,8 +1617,19 @@ func registerWebRoutes(m *web.Router) {
 
 		m.Group("", func() {
 			m.Get("/graph", repo.Graph)
-			m.Get("/commit/{sha:([a-f0-9]{7,64})$}", repo.SetEditorconfigIfExists, repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.Diff)
-			m.Get("/commit/{sha:([a-f0-9]{7,64})$}/load-branches-and-tags", repo.LoadBranchesAndTags)
+			// Commit
+			m.Get("/commit/{sha:[a-f0-9]{7,64}}", repo.SetEditorconfigIfExists, repo.SetDiffViewStyle, repo.SetWhitespaceBehavior, repo.Diff)
+			m.Group("/commit/{sha:[a-f0-9]{7,64}}", func() {
+				m.Group("/files", func() {
+					m.Get("/reviews/new_comment", repo.RenderNewCommitCommentForm)
+					m.Post("/reviews/comments", web.Bind(forms.CodeCommentForm{}), repo.CreateCommitCodeComment)
+				})
+				m.Get("/load-branches-and-tags", repo.LoadBranchesAndTags)
+				m.Post("/comments/{id}", repo.UpdateCommitComment)
+				m.Post("/comments/{id}/delete", repo.DeleteCommitComment)
+				m.Post("/files/comments/{id}/delete", repo.DeleteCommitComment)
+				m.Post("/files/reviews/comments/{id}/delete", repo.DeleteCommitComment)
+			})
 
 			// FIXME: this route `/cherry-pick/{sha}` doesn't seem useful or right, the new code always uses `/_cherrypick/` which could handle branch name correctly
 			m.Get("/cherry-pick/{sha:([a-f0-9]{7,64})$}", repo.SetEditorconfigIfExists, context.RepoRefByDefaultBranch(), repo.CherryPick)

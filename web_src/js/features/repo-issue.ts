@@ -126,11 +126,11 @@ export function initRepoIssueFilterItemLabel() {
 
 export function initRepoIssueCommentDelete() {
   // Delete comment
-  document.addEventListener('click', async (e) => {
-    if (!(e.target as HTMLElement).matches('.delete-comment')) return;
+  // Use pointerdown to ensure we catch interactions before dropdown/hide logic removes the menu from DOM
+  addDelegatedEventListener(document, 'pointerdown', '.delete-comment', async (el, e) => {
     e.preventDefault();
 
-    const deleteButton = e.target as HTMLElement;
+    const deleteButton = el as HTMLElement;
     if (window.confirm(deleteButton.getAttribute('data-locale')!)) {
       try {
         const response = await POST(deleteButton.getAttribute('data-url')!);
@@ -183,10 +183,10 @@ export function initRepoIssueCommentDelete() {
 
 export function initRepoIssueCodeCommentCancel() {
   // Cancel inline code comment
-  document.addEventListener('click', (e) => {
-    if (!(e.target as HTMLElement).matches('.cancel-code-comment')) return;
+  addDelegatedEventListener(document, 'click', '.cancel-code-comment', (el, e) => {
+    e.preventDefault();
 
-    const form = (e.target as HTMLElement).closest('form')!;
+    const form = (el as HTMLElement).closest('form')!;
     if (form?.classList.contains('comment-form')) {
       hideElem(form);
       showElem(form.closest('.comment-code-cloud')!.querySelectorAll('button.comment-form-reply'));
@@ -301,8 +301,8 @@ export function initRepoPullRequestReview() {
     handleReply(el);
   });
 
-  // The following part is only for diff views
-  if (!document.querySelector('.repository.pull.diff')) return;
+  // The following part is only for diff views (PR and commit diffs)
+  if (!document.querySelector('.repository.diff')) return;
 
   const elReviewBtn = document.querySelector('.js-btn-review');
   const elReviewPanel = document.querySelector('.review-box-panel.tippy-target');
@@ -345,8 +345,38 @@ export function initRepoPullRequestReview() {
     const td = ntr.querySelector(`.add-comment-${side}`)!;
     const commentCloud = td.querySelector('.comment-code-cloud');
     if (!commentCloud && !ntr.querySelector('button[name="pending_review"]')) {
-      const response = await GET(el.closest('[data-new-comment-url]')?.getAttribute('data-new-comment-url') ?? '');
+      const response = await GET(el.closest('[data-new-comment-url]')?.getAttribute('data-new-comment-url') ?? '', {credentials: 'include', redirect: 'follow'});
       td.innerHTML = await response.text();
+      // initialize dropdowns within the newly injected content so context menus work
+      queryElems(td, '.ui.dropdown:not(.custom)', (el) => {
+        const $dropdown = fomanticQuery(el as HTMLElement);
+        $dropdown.dropdown('setting', {hideDividers: 'empty'});
+        if ((el as HTMLElement).classList.contains('jump')) {
+          $dropdown.dropdown('setting', {
+            action: 'hide',
+            onShow() {
+              // hide associated tooltip while dropdown is open
+              // eslint-disable-next-line unicorn/no-this-assignment
+              const dd = this as any;
+              dd._tippy?.hide();
+              dd._tippy?.disable();
+            },
+            onHide() {
+              // eslint-disable-next-line unicorn/no-this-assignment
+              const elDropdown = this as HTMLElement;
+              // re-enable the tippy after hiding
+              const dd = (this as any);
+              dd._tippy?.enable();
+              setTimeout(() => {
+                const $dropdownInner = fomanticQuery(elDropdown as HTMLElement);
+                if ($dropdownInner.dropdown('is hidden')) {
+                  queryElems(elDropdown as HTMLElement, '.menu > .item', (i) => (i as any)._tippy?.hide());
+                }
+              }, 2000);
+            },
+          });
+        }
+      });
       td.querySelector<HTMLInputElement>("input[name='line']")!.value = idx;
       td.querySelector<HTMLInputElement>("input[name='side']")!.value = (side === 'left' ? 'previous' : 'proposed');
       td.querySelector<HTMLInputElement>("input[name='path']")!.value = String(path);
