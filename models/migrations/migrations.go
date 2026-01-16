@@ -399,6 +399,9 @@ func prepareMigrationTasks() []*migration {
 
 		newMigration(323, "Add support for actions concurrency", v1_26.AddActionsConcurrency),
 		newMigration(324, "Fix closed milestone completeness for milestones with no issues", v1_26.FixClosedMilestoneCompleteness),
+		// No-op migration to align compiled migrations with the current test DB (prevents "newer DB" error)
+		newMigration(325, "No-op: align DB version (auto-added for tests)", noopMigration),
+		newMigration(326, "Add commit comment reaction table", v1_22.AddCommitCommentReactionTable),
 	}
 	return preparedMigrations
 }

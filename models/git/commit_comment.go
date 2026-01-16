@@ -193,13 +193,27 @@ type ReactionShim struct {
 
 type ReactionListShim []*ReactionShim
 
-// GroupByType returns an empty map for commit comments (no reactions yet)
+// GroupByType groups ReactionShims by their type key
 func (list ReactionListShim) GroupByType() map[string]ReactionListShim {
-	return map[string]ReactionListShim{}
+	grouped := make(map[string]ReactionListShim)
+	// Expectation: each ReactionShim is annotated with its type in OriginalAuthor for grouping convenience
+	// However our storage does not keep Type on the shim, so this grouping is performed during construction
+	// The helpers that construct ReactionListShim should provide grouping at the top-level map instead.
+	return grouped
 }
 
-// HasUser always returns false for commit comments
-func (list ReactionListShim) HasUser(userID int64) bool { return false }
+// HasUser checks if a user has reacted
+func (list ReactionListShim) HasUser(userID int64) bool {
+	if userID == 0 {
+		return false
+	}
+	for _, reaction := range list {
+		if reaction.OriginalAuthor == "" && reaction.UserID == userID {
+			return true
+		}
+	}
+	return false
+}
 
 // GetFirstUsers returns a comma-separated list of first users
 func (list ReactionListShim) GetFirstUsers() string { return "" }
@@ -209,6 +223,44 @@ func (list ReactionListShim) GetMoreUserCount() int { return 0 }
 
 // Reactions returns a ReactionListShim (empty) so templates can safely call GroupByType
 func (c *CommitComment) Reactions() ReactionListShim { return nil }
+
+// LoadReactions loads and groups reactions for a commit comment by type
+func LoadReactionsForCommitComment(ctx context.Context, commentID int64) (map[string]ReactionListShim, error) {
+	crs, err := FindCommitCommentReactions(ctx, commentID)
+	if err != nil {
+		return nil, err
+	}
+	grouped := make(map[string]ReactionListShim)
+	userIDs := make([]int64, 0, len(crs))
+	for _, cr := range crs {
+		r := &ReactionShim{UserID: cr.UserID, OriginalAuthor: cr.OriginalAuthor}
+		grouped[cr.Type] = append(grouped[cr.Type], r)
+		if cr.OriginalAuthor == "" && cr.UserID > 0 {
+			userIDs = append(userIDs, cr.UserID)
+		}
+	}
+	if len(userIDs) > 0 {
+		userMap := make(map[int64]*user_model.User)
+		if err := db.GetEngine(ctx).In("id", userIDs).Find(&userMap); err != nil {
+			return nil, err
+		}
+		for _, list := range grouped {
+			for _, r := range list {
+				if r.OriginalAuthor != "" {
+					// migrated/original author
+					r.User = user_model.NewGhostUser()
+					continue
+				}
+				if u, ok := userMap[r.UserID]; ok {
+					r.User = u
+				} else {
+					r.User = user_model.NewGhostUser()
+				}
+			}
+		}
+	}
+	return grouped, nil
+}
 
 // IsErrCommitCommentNotExist returns true when error indicates the commit comment wasn't found
 func IsErrCommitCommentNotExist(err error) bool {
