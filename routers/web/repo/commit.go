@@ -460,6 +460,10 @@ func RenderNewCommitCommentForm(ctx *context.Context) {
 	if ctx.Written() {
 		return
 	}
+	if !ctx.IsSigned || !ctx.Repo.CanWrite(unit_model.TypeCode) {
+		ctx.HTTPError(http.StatusForbidden)
+		return
+	}
 	sha := ctx.PathParam("sha")
 	ctx.Data["CommitID"] = sha
 	ctx.Data["AfterCommitID"] = sha
@@ -473,6 +477,10 @@ func CreateCommitCodeComment(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.CodeCommentForm)
 	sha := ctx.PathParam("sha")
 	if ctx.Written() {
+		return
+	}
+	if !ctx.IsSigned || !ctx.Repo.CanWrite(unit_model.TypeCode) {
+		ctx.HTTPError(http.StatusForbidden)
 		return
 	}
 	if ctx.HasError() {

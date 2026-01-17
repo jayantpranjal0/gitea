@@ -76,7 +76,11 @@
 		</div>
 		{{$reactions := .Reactions.GroupByType}}
 		{{if $reactions}}
-			{{template "repo/issue/view_content/reactions" dict "ActionURL" (printf "%s/comments/%d/reactions" $.root.RepoLink .ID) "Reactions" $reactions}}
+			{{if $.root.CommitID}}
+				{{template "repo/issue/view_content/reactions" dict "ActionURL" (printf "%s/commit/%s/comments/%d/reactions" $.root.RepoLink $.root.CommitID .ID) "Reactions" $reactions}}
+			{{else}}
+				{{template "repo/issue/view_content/reactions" dict "ActionURL" (printf "%s/comments/%d/reactions" $.root.RepoLink .ID) "Reactions" $reactions}}
+			{{end}}
 		{{end}}
 	</div>
 </div>
