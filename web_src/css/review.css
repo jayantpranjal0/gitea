@@ -69,7 +69,14 @@
   padding: 0;
   margin: 0;
 }
-/* Show boxed header for single-sided comment areas (commits) to match PR review UI */
+/* Show boxed header for comment clouds (commit comments and PR review comments) */
+.comment-code-cloud > .ui.attached.header,
+.conversation-holder > .ui.attached.header {
+  border: 1px solid var(--color-secondary);
+  padding: 1px 8px 1px 12px;
+  border-radius: var(--border-radius);
+  background-color: var(--color-surface);
+}/* Show boxed header for single-sided comment areas (commits) to match PR review UI */
 .add-comment-left .ui.attached.header,
 .add-comment-right .ui.attached.header {
   border: 1px solid var(--color-secondary);

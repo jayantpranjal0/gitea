@@ -1629,6 +1629,7 @@ func registerWebRoutes(m *web.Router) {
 				m.Post("/comments/{id}/delete", repo.DeleteCommitComment)
 				m.Post("/files/comments/{id}/delete", repo.DeleteCommitComment)
 				m.Post("/files/reviews/comments/{id}/delete", repo.DeleteCommitComment)
+				m.Post("/comments/{id}/reactions/{action}", web.Bind(forms.ReactionForm{}), repo.ChangeCommitCommentReaction)
 			})
 
 			// FIXME: this route `/cherry-pick/{sha}` doesn't seem useful or right, the new code always uses `/_cherrypick/` which could handle branch name correctly
