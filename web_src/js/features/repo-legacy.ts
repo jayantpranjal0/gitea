@@ -72,5 +72,13 @@ export function initRepository() {
     registerGlobalInitFunc('initRepoPullMergeBox', initRepoPullMergeBox);
   }
 
+  // Initialize comment edit/quote handlers for other repository pages (commit diffs, PR files)
+  initRepoIssueCommentEdit();
+  // Ensure delete/cancel handlers are active as well on all repo pages
+  initRepoIssueCommentDelete();
+  initRepoIssueCodeCommentCancel();
+  // Initialize reaction selector handlers globally so commit comment reaction buttons work
+  initCompReactionSelector();
+
   initUnicodeEscapeButton();
 }
