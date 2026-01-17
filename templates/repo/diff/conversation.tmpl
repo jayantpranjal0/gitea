@@ -33,6 +33,7 @@
 			</div>
 		{{end}}
 		<div id="code-comments-{{$comment.ID}}" class="field comment-code-cloud {{if $resolved}}tw-hidden{{end}}">
+			<div class="ui attached header" aria-hidden="true"></div>
 			<div class="comment-list">
 				<div class="ui comments">
 					{{template "repo/diff/comments" dict "root" $ "comments" .comments}}
